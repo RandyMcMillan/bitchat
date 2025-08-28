@@ -31,7 +31,8 @@ class NostrRelayManager: ObservableObject {
         "wss://nos.lol",
         "wss://relay.primal.net",
         "wss://offchain.pub",
-        "wss://nostr21.com"
+        "wss://nostr21.com",
+        "wss://relay.nostr.band/all" //
         // For local testing, you can add: "ws://localhost:8080"
     ]
     
