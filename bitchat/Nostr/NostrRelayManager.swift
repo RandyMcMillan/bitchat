@@ -326,7 +326,7 @@ class NostrRelayManager: ObservableObject {
                                             category: SecureLogger.session, level: .debug)
                         } else {
                             let isGiftWrap = Self.pendingGiftWrapIDs.remove(eventId) != nil
-                            SecureLogger.log("📮 Rejected id=\(eventId.prefix(16))… reason=\(reason)", 
+                            SecureLogger.log("📮 Rejected id=\(eventId.prefix(16))… reason=\(reason) \(relayUrl)",
                                             category: SecureLogger.session, level: isGiftWrap ? .warning : .error)
                         }
                     }
