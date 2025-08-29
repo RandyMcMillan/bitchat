@@ -676,7 +676,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 3EA424CBD51200895D361189 /* Build configuration list for PBXProject "bitchat" */;
+			buildConfigurationList = 3EA424CBD51200895D361189 /* Build configuration list for PBXProject "bitmessage" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -1342,7 +1342,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
-		3EA424CBD51200895D361189 /* Build configuration list for PBXProject "bitchat" */ = {
+		3EA424CBD51200895D361189 /* Build configuration list for PBXProject "bitmessage" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D8C5BF109BB2630752185FA0 /* Debug */,
