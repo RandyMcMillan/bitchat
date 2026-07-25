@@ -296,11 +296,6 @@ class NostrRelayManager: ObservableObject {
                                             category: SecureLogger.session, level: .debug)
                         }
 
-                        private func mirrorRemoteEventToLocalRelay(_ event: NostrEvent, from relayUrl: String) {
-                            guard relayUrl != LocalRelayConfig.urlString else { return }
-                            sendEvent(event, to: [LocalRelayConfig.urlString])
-                        }
-                        
                         DispatchQueue.main.async {
                             // Update relay stats
                             if let index = self.relays.firstIndex(where: { $0.url == relayUrl }) {
@@ -376,24 +371,29 @@ class NostrRelayManager: ObservableObject {
                         if let index = self?.relays.firstIndex(where: { $0.url == relayUrl }) {
                             self?.relays[index].messagesSent += 1
                         }
-
-                        private func resolvedRelayURLs(_ relayUrls: [String]?) -> [String] {
-                            let base = relayUrls ?? Self.defaultRelays
-                            var seen = Set<String>()
-                            var urls: [String] = []
-                            for url in [LocalRelayConfig.urlString] + base {
-                                if seen.insert(url).inserted {
-                                    urls.append(url)
-                                }
-                            }
-                            return urls
-                        }
                     }
                 }
             }
         } catch {
             SecureLogger.log("Failed to encode event: \(error)", category: SecureLogger.session, level: .error)
         }
+    }
+
+    private func mirrorRemoteEventToLocalRelay(_ event: NostrEvent, from relayUrl: String) {
+        guard relayUrl != LocalRelayConfig.urlString else { return }
+        sendEvent(event, to: [LocalRelayConfig.urlString])
+    }
+
+    private func resolvedRelayURLs(_ relayUrls: [String]?) -> [String] {
+        let base = relayUrls ?? Self.defaultRelays
+        var seen = Set<String>()
+        var urls: [String] = []
+        for url in [LocalRelayConfig.urlString] + base {
+            if seen.insert(url).inserted {
+                urls.append(url)
+            }
+        }
+        return urls
     }
     
     private func updateRelayStatus(_ url: String, isConnected: Bool, error: Error? = nil) {
