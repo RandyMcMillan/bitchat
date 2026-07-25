@@ -40,7 +40,6 @@
 		438E81C9D07DABC9D6B86AD7 /* UnifiedPeerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D90CBA19E19728938700953D /* UnifiedPeerService.swift */; };
 		44AD79B0EBD4678690E3DEB6 /* MessageDeduplicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0BF581F9D98C90EA9867BCF /* MessageDeduplicator.swift */; };
 		465F776816537C720DEB8600 /* BLEServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9D911BB2E1F2CBF6BCB2D2F /* BLEServiceTests.swift */; };
-		46E1E1013CC18AB66105DB27 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 95F16C3A4A5621C74461D8D3 /* LaunchScreen.storyboard */; };
 		4B747085D07A1BCE0F5BA612 /* BinaryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2136C3E22D02D4A8DBE7EAB /* BinaryProtocol.swift */; };
 		4DC6562C882AAC5F80DB1246 /* LaunchScreen.storyboard.ios in Resources */ = {isa = PBXBuildFile; fileRef = D112DB3FB47481D2837C763D /* LaunchScreen.storyboard.ios */; };
 		4F2F1893E90C1B13D388CEA9 /* LocationChannelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15B067FEF619D9D3D14782BA /* LocationChannelsTests.swift */; };
@@ -733,7 +732,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				7DD72D928FF9DD3CA81B46B0 /* Assets.xcassets in Resources */,
-				46E1E1013CC18AB66105DB27 /* LaunchScreen.storyboard in Resources */,
 				EA763998F218C8E0C8F5679D /* LaunchScreen.storyboard.ios in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
