@@ -18,12 +18,20 @@ struct RelayScrapedGeohash: Identifiable, Equatable {
     var id: String { geohash }
 }
 
+private struct ExplorerGeohashActivity: Decodable {
+    let geohash: String
+    let activeUsers: Int
+    let lastActivity: Date
+    let messageCount1h: Int
+}
+
 @MainActor
 final class RelayChannelScraper: ObservableObject {
     static let shared = RelayChannelScraper()
 
     @Published private(set) var channels: [RelayScrapedChannel] = []
     @Published private(set) var geohashes: [RelayScrapedGeohash] = []
+    @Published private(set) var explorerGeohashes: [RelayScrapedGeohash] = []
 
     private struct ChannelStats {
         var channel: GeohashChannel
@@ -32,10 +40,13 @@ final class RelayChannelScraper: ObservableObject {
     }
 
     private var channelStats: [String: ChannelStats] = [:]
+    private var explorerStats: [String: RelayScrapedGeohash] = [:]
     private var seenEventIDs: Set<String> = []
     private var cancellables = Set<AnyCancellable>()
     private var didStart = false
     private let subscriptionID = "relay-channel-scrape"
+    private let explorerFeedURL = URL(string: "https://bitchatexplorer.com/api/geohash-activities/recent")!
+    private var explorerRefreshTimer: Timer?
 
     func start() {
         guard !didStart else { return }
@@ -51,6 +62,11 @@ final class RelayChannelScraper: ObservableObject {
             .store(in: &cancellables)
 
         refresh()
+        refreshExplorerGeohashes()
+        explorerRefreshTimer?.invalidate()
+        explorerRefreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            self?.refreshExplorerGeohashes()
+        }
     }
 
     func refresh() {
@@ -62,6 +78,24 @@ final class RelayChannelScraper: ObservableObject {
         NostrRelayManager.shared.subscribe(filter: filter, id: subscriptionID) { [weak self] event in
             Task { @MainActor in
                 self?.ingest(event)
+            }
+        }
+    }
+
+    func refreshExplorerGeohashes() {
+        Task { [weak self] in
+            guard let self = self else { return }
+            do {
+                let (data, _) = try await URLSession.shared.data(from: self.explorerFeedURL)
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                let activities = try decoder.decode([ExplorerGeohashActivity].self, from: data)
+                await MainActor.run {
+                    self.ingestExplorerActivities(activities)
+                }
+            } catch {
+                SecureLogger.log("RelayChannelScraper: explorer feed refresh failed: \(error)",
+                                 category: SecureLogger.session, level: .warning)
             }
         }
     }
@@ -108,6 +142,27 @@ final class RelayChannelScraper: ObservableObject {
                 lastSeen: $0.lastSeen,
                 level: $0.channel.level
             )
+        }
+    }
+
+    private func ingestExplorerActivities(_ activities: [ExplorerGeohashActivity]) {
+        for activity in activities {
+            let level = Self.level(forGeohashLength: activity.geohash.count)
+            explorerStats[activity.geohash] = RelayScrapedGeohash(
+                geohash: activity.geohash,
+                eventCount: max(activity.activeUsers, activity.messageCount1h),
+                lastSeen: activity.lastActivity,
+                level: level
+            )
+        }
+        explorerGeohashes = explorerStats.values.sorted {
+            if $0.lastSeen == $1.lastSeen {
+                if $0.eventCount == $1.eventCount {
+                    return $0.geohash < $1.geohash
+                }
+                return $0.eventCount > $1.eventCount
+            }
+            return $0.lastSeen > $1.lastSeen
         }
     }
 
