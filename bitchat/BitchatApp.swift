@@ -8,7 +8,9 @@
 
 import SwiftUI
 import UserNotifications
+#if canImport(Bitchat)
 import Bitchat
+#endif
 
 @main
 struct BitchatApp: App {
