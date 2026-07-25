@@ -52,7 +52,7 @@ generate: patch-for-macos
 # Build the macOS app
 build: check generate
     @echo "Building BitChat for macOS..."
-    @xcodebuild -project bitchat.xcodeproj -scheme "bitchat (macOS)" -configuration Debug CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGN_ENTITLEMENTS="" build
+    @xcodebuild -project bitchat.xcodeproj -scheme "bitchat (macOS)" -configuration Debug CODE_SIGN_IDENTITY="M684FYCYG6" CODE_SIGNING_REQUIRED=NO CODE_SIGN_ENTITLEMENTS="" build
 
 # Run the macOS app
 run: build
@@ -77,7 +77,7 @@ dev-run: check
     @echo "Quick development build..."
     @if [ ! -f project.yml.backup ]; then just patch-for-macos; fi
     @xcodegen generate
-    @xcodebuild -project bitchat.xcodeproj -scheme "bitchat (macOS)" -configuration Debug CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGN_ENTITLEMENTS="" build
+    @xcodebuild -project bitchat.xcodeproj -scheme "bitchat (macOS)" -configuration Debug CODE_SIGN_IDENTITY="M684FYCYG6" CODE_SIGNING_REQUIRED=NO CODE_SIGN_ENTITLEMENTS="" build
     @find ~/Library/Developer/Xcode/DerivedData -name "bitchat.app" -path "*/Debug/*" -not -path "*/Index.noindex/*" | head -1 | xargs -I {} open "{}"
 
 # Show app info
