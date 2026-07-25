@@ -59,6 +59,16 @@ private struct ExplorerGeohashActivity: Decodable {
 @MainActor
 final class RelayChannelScraper: ObservableObject {
     static let shared = RelayChannelScraper()
+    private static let explorerDateFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+    private static let explorerDateFormatterWithFractionalSeconds: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
 
     @Published private(set) var channels: [RelayScrapedChannel] = []
     @Published private(set) var geohashes: [RelayScrapedGeohash] = []
@@ -120,7 +130,15 @@ final class RelayChannelScraper: ObservableObject {
             do {
                 let (data, _) = try await URLSession.shared.data(from: self.explorerFeedURL)
                 let decoder = JSONDecoder()
-                decoder.dateDecodingStrategy = .iso8601
+                decoder.dateDecodingStrategy = .custom { decoder in
+                    let container = try decoder.singleValueContainer()
+                    let raw = try container.decode(String.self)
+                    if let date = Self.explorerDateFormatterWithFractionalSeconds.date(from: raw)
+                        ?? Self.explorerDateFormatter.date(from: raw) {
+                        return date
+                    }
+                    throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid ISO-8601 date: \(raw)")
+                }
                 let activities = try decoder.decode([ExplorerGeohashActivity].self, from: data)
                 await MainActor.run {
                     self.ingestExplorerActivities(activities)
