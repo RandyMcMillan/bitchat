@@ -1,0 +1,3 @@
+[submodule "georelays"]
+	path = georelays
+	url = git@github.com:RandyMcMillan/georelays.git
