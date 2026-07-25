@@ -13,6 +13,7 @@ struct LocationChannelsSheet: View {
     @State private var customGeohash: String = ""
     @State private var customError: String? = nil
 
+    // handle MacOS "My Mac"
     var body: some View {
         NavigationView {
             VStack(alignment: .leading, spacing: 12) {
@@ -53,6 +54,7 @@ struct LocationChannelsSheet: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
+            .frame(maxWidth: 560, alignment: .leading)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -71,10 +73,13 @@ struct LocationChannelsSheet: View {
             #endif
         }
         #if os(iOS)
-        .presentationDetents([.large])
+        .navigationViewStyle(.stack)
+        #endif
+        #if os(iOS)
+        .presentationDetents([.medium, .large])
         #endif
         #if os(macOS)
-        .frame(minWidth: 420, minHeight: 520)
+        .frame(minWidth: 420, idealWidth: 520, maxWidth: 560, minHeight: 520, idealHeight: 680, maxHeight: 760)
         #endif
         .onAppear {
             // Refresh channels when opening
