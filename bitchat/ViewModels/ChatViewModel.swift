@@ -515,7 +515,10 @@ class ChatViewModel: ObservableObject, BitchatDelegate {
         
         // Set nickname before starting services
         meshService.setNickname(nickname)
-        
+
+        // Start embedded Nostr relay before any Nostr subscriptions or publishes.
+        LocalRelayController.shared.startIfNeeded()
+
         // Start mesh service immediately
         meshService.startServices()
         

@@ -49,7 +49,9 @@ let package = Package(
         ),
         .executableTarget(
             name: "BitchatRelay",
-            path: "relay"
+            dependencies: ["Bitchat"],
+            path: "relay",
+            sources: ["main.swift"]
         ),
     ]
 )

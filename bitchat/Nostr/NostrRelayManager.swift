@@ -27,6 +27,7 @@ class NostrRelayManager: ObservableObject {
     
     // Default relay list (can be customized)
     private static let defaultRelays = [
+        LocalRelayConfig.urlString,
         "wss://relay.damus.io",
         "wss://nos.lol",
         "wss://relay.primal.net",
@@ -94,7 +95,7 @@ class NostrRelayManager: ObservableObject {
 
     /// Send an event to specified relays (or all if none specified)
     func sendEvent(_ event: NostrEvent, to relayUrls: [String]? = nil) {
-        let targetRelays = relayUrls ?? Self.defaultRelays
+        let targetRelays = resolvedRelayURLs(relayUrls)
         ensureConnections(to: targetRelays)
         
         // Add to queue for reliability
@@ -137,7 +138,7 @@ class NostrRelayManager: ObservableObject {
             //                 category: SecureLogger.session, level: .debug)
             
             // Target specific relays if provided; else all connections
-            let urls = relayUrls ?? Self.defaultRelays
+            let urls = resolvedRelayURLs(relayUrls)
             ensureConnections(to: urls)
             let targets: [(String, URLSessionWebSocketTask)] = urls.compactMap { url in
                 connections[url].map { (url, $0) }
@@ -287,11 +288,17 @@ class NostrRelayManager: ObservableObject {
                        let eventDict = array[2] as? [String: Any] {
                         
                         let event = try NostrEvent(from: eventDict)
+                        mirrorRemoteEventToLocalRelay(event, from: relayUrl)
                         
                         // Only log non-gift-wrap events to reduce noise
                         if event.kind != 1059 {
                             SecureLogger.log("📥 Event kind=\(event.kind) id=\(event.id.prefix(16))… relay=\(relayUrl)",
                                             category: SecureLogger.session, level: .debug)
+                        }
+
+                        private func mirrorRemoteEventToLocalRelay(_ event: NostrEvent, from relayUrl: String) {
+                            guard relayUrl != LocalRelayConfig.urlString else { return }
+                            sendEvent(event, to: [LocalRelayConfig.urlString])
                         }
                         
                         DispatchQueue.main.async {
@@ -368,6 +375,18 @@ class NostrRelayManager: ObservableObject {
                         // Update relay stats
                         if let index = self?.relays.firstIndex(where: { $0.url == relayUrl }) {
                             self?.relays[index].messagesSent += 1
+                        }
+
+                        private func resolvedRelayURLs(_ relayUrls: [String]?) -> [String] {
+                            let base = relayUrls ?? Self.defaultRelays
+                            var seen = Set<String>()
+                            var urls: [String] = []
+                            for url in [LocalRelayConfig.urlString] + base {
+                                if seen.insert(url).inserted {
+                                    urls.append(url)
+                                }
+                            }
+                            return urls
                         }
                     }
                 }

@@ -34,6 +34,7 @@ enum TransportConfig {
 
     // Nostr
     static let nostrReadAckInterval: TimeInterval = 0.35 // ~3 per second
+    static let localRelayPort: UInt16 = 7447
 
     // UI thresholds
     static let uiLateInsertThreshold: TimeInterval = 15.0

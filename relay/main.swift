@@ -1,15 +1,9 @@
 import Foundation
+import Bitchat
 
 struct RelayCLIConfiguration {
-    var port: UInt16 = 7447
-    var dataDirectory: URL = RelayCLIConfiguration.defaultDataDirectory()
-
-    static func defaultDataDirectory() -> URL {
-        let fm = FileManager.default
-        let base = (try? fm.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
-            ?? URL(fileURLWithPath: fm.currentDirectoryPath)
-        return base.appendingPathComponent("bitchat-relay", isDirectory: true)
-    }
+    var port: UInt16 = LocalRelayConfig.port
+    var dataDirectory: URL = LocalRelayConfig.dataDirectory
 }
 
 func parseConfiguration() -> RelayCLIConfiguration {
@@ -24,7 +18,7 @@ func parseConfiguration() -> RelayCLIConfiguration {
             Usage: BitchatRelay [--port <port>] [--data-dir <path>]
 
             Options:
-              --port <port>       TCP port to listen on (default: 7447)
+              --port <port>       TCP port to listen on (default: \(LocalRelayConfig.port))
               --data-dir <path>   Directory used for persistent relay storage
               --help, -h          Show this help text
             """)
