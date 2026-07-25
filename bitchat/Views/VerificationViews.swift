@@ -38,6 +38,7 @@ struct MyQRView: View {
             .cornerRadius(8)
         }
         .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
