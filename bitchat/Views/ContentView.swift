@@ -529,7 +529,7 @@ struct ContentView: View {
             .onChange(of: viewModel.messages.count) { _ in
                 if privatePeer == nil && !viewModel.messages.isEmpty {
                     // If the newest message is from me, always scroll to bottom
-                    let lastMsg = viewModel.messages.last!
+                    guard let lastMsg = viewModel.messages.last else { return }
                     let isFromSelf = (lastMsg.sender == viewModel.nickname) || lastMsg.sender.hasPrefix(viewModel.nickname + "#")
                     if !isFromSelf {
                         // Only autoscroll when user is at/near bottom
@@ -579,7 +579,7 @@ struct ContentView: View {
                    let messages = viewModel.privateChats[peerID],
                    !messages.isEmpty {
                     // If the newest private message is from me, always scroll
-                    let lastMsg = messages.last!
+                    guard let lastMsg = messages.last else { return }
                     let isFromSelf = (lastMsg.sender == viewModel.nickname) || lastMsg.sender.hasPrefix(viewModel.nickname + "#")
                     if !isFromSelf {
                         // Only autoscroll when user is at/near bottom
