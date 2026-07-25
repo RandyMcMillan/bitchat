@@ -18,6 +18,37 @@ struct RelayScrapedGeohash: Identifiable, Equatable {
     var id: String { geohash }
 }
 
+enum RelayScrapedGeohashSource: String, Hashable {
+    case relay
+    case explorer
+
+    var displayName: String {
+        switch self {
+        case .relay:
+            return "relay"
+        case .explorer:
+            return "explorer"
+        }
+    }
+}
+
+struct GlobalGeohashFeedItem: Identifiable, Equatable {
+    let geohash: String
+    let level: GeohashChannelLevel
+    var eventCount: Int
+    var lastSeen: Date
+    var sources: Set<RelayScrapedGeohashSource>
+
+    var id: String { geohash }
+
+    var sourceLabel: String {
+        [RelayScrapedGeohashSource.relay, RelayScrapedGeohashSource.explorer]
+            .filter { sources.contains($0) }
+            .map(\.displayName)
+            .joined(separator: " + ")
+    }
+}
+
 private struct ExplorerGeohashActivity: Decodable {
     let geohash: String
     let activeUsers: Int
@@ -32,6 +63,7 @@ final class RelayChannelScraper: ObservableObject {
     @Published private(set) var channels: [RelayScrapedChannel] = []
     @Published private(set) var geohashes: [RelayScrapedGeohash] = []
     @Published private(set) var explorerGeohashes: [RelayScrapedGeohash] = []
+    @Published private(set) var globalGeohashes: [GlobalGeohashFeedItem] = []
 
     private struct ChannelStats {
         var channel: GeohashChannel
@@ -143,6 +175,7 @@ final class RelayChannelScraper: ObservableObject {
                 level: $0.channel.level
             )
         }
+        publishGlobalGeohashes()
     }
 
     private func ingestExplorerActivities(_ activities: [ExplorerGeohashActivity]) {
@@ -156,6 +189,58 @@ final class RelayChannelScraper: ObservableObject {
             )
         }
         explorerGeohashes = explorerStats.values.sorted {
+            if $0.lastSeen == $1.lastSeen {
+                if $0.eventCount == $1.eventCount {
+                    return $0.geohash < $1.geohash
+                }
+                return $0.eventCount > $1.eventCount
+            }
+            return $0.lastSeen > $1.lastSeen
+        }
+        publishGlobalGeohashes()
+    }
+
+    private func publishGlobalGeohashes() {
+        var combined: [String: GlobalGeohashFeedItem] = [:]
+
+        func merge(geohash: String, eventCount: Int, lastSeen: Date, level: GeohashChannelLevel, source: RelayScrapedGeohashSource) {
+            if var existing = combined[geohash] {
+                existing.eventCount = max(existing.eventCount, eventCount)
+                existing.lastSeen = max(existing.lastSeen, lastSeen)
+                existing.sources.insert(source)
+                combined[geohash] = existing
+            } else {
+                combined[geohash] = GlobalGeohashFeedItem(
+                    geohash: geohash,
+                    level: level,
+                    eventCount: eventCount,
+                    lastSeen: lastSeen,
+                    sources: [source]
+                )
+            }
+        }
+
+        for stats in channelStats.values {
+            merge(
+                geohash: stats.channel.geohash,
+                eventCount: stats.eventCount,
+                lastSeen: stats.lastSeen,
+                level: stats.channel.level,
+                source: .relay
+            )
+        }
+
+        for stats in explorerStats.values {
+            merge(
+                geohash: stats.geohash,
+                eventCount: stats.eventCount,
+                lastSeen: stats.lastSeen,
+                level: stats.level,
+                source: .explorer
+            )
+        }
+
+        globalGeohashes = combined.values.sorted {
             if $0.lastSeen == $1.lastSeen {
                 if $0.eventCount == $1.eventCount {
                     return $0.geohash < $1.geohash

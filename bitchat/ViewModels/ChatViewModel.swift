@@ -342,6 +342,7 @@ class ChatViewModel: ObservableObject, BitchatDelegate {
     @Published private(set) var relayScrapedChannels: [RelayScrapedChannel] = []
     @Published private(set) var relayScrapedGeohashes: [RelayScrapedGeohash] = []
     @Published private(set) var explorerGeohashes: [RelayScrapedGeohash] = []
+    @Published private(set) var globalGeohashes: [GlobalGeohashFeedItem] = []
     
     // Temporary property to fix compilation
     @Published var showPasswordPrompt = false
@@ -522,6 +523,13 @@ class ChatViewModel: ObservableObject, BitchatDelegate {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] geohashes in
                 self?.explorerGeohashes = geohashes
+            }
+            .store(in: &cancellables)
+
+        relayChannelScraper.$globalGeohashes
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] geohashes in
+                self?.globalGeohashes = geohashes
             }
             .store(in: &cancellables)
         self.commandProcessor.meshService = meshService

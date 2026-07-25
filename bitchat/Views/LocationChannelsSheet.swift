@@ -133,56 +133,17 @@ struct LocationChannelsSheet: View {
             }
 
             let nearbyGeohashes = Set(manager.availableChannels.map { $0.geohash })
-            let scrapedChannels = viewModel.relayScrapedChannels.filter { !nearbyGeohashes.contains($0.channel.geohash) }
+            let globalGeohashes = viewModel.globalGeohashes.filter { !nearbyGeohashes.contains($0.geohash) }
 
-            if !scrapedChannels.isEmpty {
-                Text("relay-discovered")
+            if !globalGeohashes.isEmpty {
+                Text("global feeds")
                     .font(.system(size: 12, design: .monospaced))
                     .foregroundColor(.secondary)
 
-                ForEach(scrapedChannels) { item in
-                    let channel = item.channel
-                    let coverage = coverageString(forPrecision: channel.geohash.count)
-                    let subtitlePrefix = "#\(channel.geohash) • relay-scraped • \(coverage)"
-                    channelRow(title: "\(channel.level.displayName.lowercased()) [\(item.eventCount) posts]", subtitlePrefix: subtitlePrefix, isSelected: isSelected(channel), titleBold: item.eventCount > 0) {
-                        manager.markTeleported(for: channel.geohash, false)
-                        manager.select(ChannelID.location(channel))
-                        isPresented = false
-                    }
-                }
-            }
-
-            let scrapedGeohashes = viewModel.relayScrapedGeohashes.filter { !nearbyGeohashes.contains($0.geohash) }
-
-            if !scrapedGeohashes.isEmpty {
-                Text("relay-discovered geohashes")
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundColor(.secondary)
-
-                ForEach(scrapedGeohashes) { item in
+                ForEach(globalGeohashes) { item in
                     let coverage = coverageString(forPrecision: item.geohash.count)
-                    let title = "\(item.geohash) [\(item.eventCount) posts]"
-                    let subtitlePrefix = "#\(item.geohash) • relay-geohash • \(coverage)"
-                    let channel = GeohashChannel(level: item.level, geohash: item.geohash)
-                    channelRow(title: title, subtitlePrefix: subtitlePrefix, isSelected: isSelected(channel), titleBold: item.eventCount > 0) {
-                        manager.markTeleported(for: channel.geohash, false)
-                        manager.select(ChannelID.location(channel))
-                        isPresented = false
-                    }
-                }
-            }
-
-            let explorerGeohashes = viewModel.explorerGeohashes.filter { !nearbyGeohashes.contains($0.geohash) }
-
-            if !explorerGeohashes.isEmpty {
-                Text("explorer geohashes")
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundColor(.secondary)
-
-                ForEach(explorerGeohashes) { item in
-                    let coverage = coverageString(forPrecision: item.geohash.count)
-                    let title = "\(item.geohash) [\(item.eventCount) posts]"
-                    let subtitlePrefix = "#\(item.geohash) • explorer • \(coverage)"
+                    let title = "\(item.geohash) [\(item.eventCount) activity]"
+                    let subtitlePrefix = "#\(item.geohash) • global • \(item.sourceLabel) • \(coverage)"
                     let channel = GeohashChannel(level: item.level, geohash: item.geohash)
                     channelRow(title: title, subtitlePrefix: subtitlePrefix, isSelected: isSelected(channel), titleBold: item.eventCount > 0) {
                         manager.markTeleported(for: channel.geohash, false)
