@@ -9,11 +9,21 @@ struct RelayScrapedChannel: Identifiable, Equatable {
     var id: String { channel.id }
 }
 
+struct RelayScrapedGeohash: Identifiable, Equatable {
+    let geohash: String
+    let eventCount: Int
+    let lastSeen: Date
+    let level: GeohashChannelLevel
+
+    var id: String { geohash }
+}
+
 @MainActor
 final class RelayChannelScraper: ObservableObject {
     static let shared = RelayChannelScraper()
 
     @Published private(set) var channels: [RelayScrapedChannel] = []
+    @Published private(set) var geohashes: [RelayScrapedGeohash] = []
 
     private struct ChannelStats {
         var channel: GeohashChannel
@@ -79,7 +89,7 @@ final class RelayChannelScraper: ObservableObject {
     }
 
     private func publishChannels() {
-        channels = channelStats.values
+        let sorted = channelStats.values
             .sorted {
                 if $0.lastSeen == $1.lastSeen {
                     if $0.eventCount == $1.eventCount {
@@ -89,7 +99,16 @@ final class RelayChannelScraper: ObservableObject {
                 }
                 return $0.lastSeen > $1.lastSeen
             }
-            .map { RelayScrapedChannel(channel: $0.channel, eventCount: $0.eventCount, lastSeen: $0.lastSeen) }
+
+        channels = sorted.map { RelayScrapedChannel(channel: $0.channel, eventCount: $0.eventCount, lastSeen: $0.lastSeen) }
+        geohashes = sorted.map {
+            RelayScrapedGeohash(
+                geohash: $0.channel.geohash,
+                eventCount: $0.eventCount,
+                lastSeen: $0.lastSeen,
+                level: $0.channel.level
+            )
+        }
     }
 
     private static func level(forGeohashLength length: Int) -> GeohashChannelLevel {

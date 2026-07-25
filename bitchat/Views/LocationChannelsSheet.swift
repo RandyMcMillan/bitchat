@@ -152,6 +152,26 @@ struct LocationChannelsSheet: View {
                 }
             }
 
+            let scrapedGeohashes = viewModel.relayScrapedGeohashes.filter { !nearbyGeohashes.contains($0.geohash) }
+
+            if !scrapedGeohashes.isEmpty {
+                Text("relay-discovered geohashes")
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundColor(.secondary)
+
+                ForEach(scrapedGeohashes) { item in
+                    let coverage = coverageString(forPrecision: item.geohash.count)
+                    let title = "\(item.geohash) [\(item.eventCount) posts]"
+                    let subtitlePrefix = "#\(item.geohash) • relay-geohash • \(coverage)"
+                    let channel = GeohashChannel(level: item.level, geohash: item.geohash)
+                    channelRow(title: title, subtitlePrefix: subtitlePrefix, isSelected: isSelected(channel), titleBold: item.eventCount > 0) {
+                        manager.markTeleported(for: channel.geohash, false)
+                        manager.select(ChannelID.location(channel))
+                        isPresented = false
+                    }
+                }
+            }
+
             // Custom geohash teleport
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 2) {

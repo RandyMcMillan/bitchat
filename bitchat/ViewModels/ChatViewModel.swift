@@ -340,6 +340,7 @@ class ChatViewModel: ObservableObject, BitchatDelegate {
     @Published var autocompleteRange: NSRange? = nil
     @Published var selectedAutocompleteIndex: Int = 0
     @Published private(set) var relayScrapedChannels: [RelayScrapedChannel] = []
+    @Published private(set) var relayScrapedGeohashes: [RelayScrapedGeohash] = []
     
     // Temporary property to fix compilation
     @Published var showPasswordPrompt = false
@@ -506,6 +507,13 @@ class ChatViewModel: ObservableObject, BitchatDelegate {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] channels in
                 self?.relayScrapedChannels = channels
+            }
+            .store(in: &cancellables)
+
+        relayChannelScraper.$geohashes
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] geohashes in
+                self?.relayScrapedGeohashes = geohashes
             }
             .store(in: &cancellables)
         self.commandProcessor.meshService = meshService
