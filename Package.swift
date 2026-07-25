@@ -49,9 +49,6 @@ let package = Package(
         ),
         .executableTarget(
             name: "BitchatRelay",
-            dependencies: [
-                .product(name: "P256K", package: "swift-secp256k1")
-            ],
             path: "relay"
         ),
     ]
