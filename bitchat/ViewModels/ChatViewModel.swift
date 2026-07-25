@@ -407,6 +407,7 @@ class ChatViewModel: ObservableObject, BitchatDelegate {
     @Published private(set) var teleportedGeo: Set<String> = []  // lowercased pubkey hex
     // Sampling subscriptions for multiple geohashes (when channel sheet is open)
     private var geoSamplingSubs: [String: String] = [:] // subID -> geohash
+    private var favoriteGeoSamplingSubs: [String: String] = [:] // subID -> geohash
     private var lastGeoNotificationAt: [String: Date] = [:] // geohash -> last notify time
     
     // MARK: - Message Delivery Tracking
@@ -660,10 +661,23 @@ class ChatViewModel: ObservableObject, BitchatDelegate {
                 }
             }
             .store(in: &cancellables)
+
+        LocationChannelManager.shared.$favoriteGeohashes
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] geohashes in
+                guard let self = self else { return }
+                Task { @MainActor in
+                    self.beginFavoriteGeohashSampling(for: Array(geohashes))
+                }
+            }
+            .store(in: &cancellables)
         // Kick off initial sampling if we already have channels
         if !LocationChannelManager.shared.availableChannels.isEmpty {
             let ghs = LocationChannelManager.shared.availableChannels.map { $0.geohash }
             Task { @MainActor in self.beginGeohashSampling(for: ghs) }
+        }
+        if !LocationChannelManager.shared.favoriteGeohashes.isEmpty {
+            Task { @MainActor in self.beginFavoriteGeohashSampling(for: Array(LocationChannelManager.shared.favoriteGeohashes)) }
         }
         // Refresh channels once when authorized to seed sampling
         LocationChannelManager.shared.$permissionState
@@ -1843,11 +1857,88 @@ class ChatViewModel: ObservableObject, BitchatDelegate {
         }
     }
 
+        /// Keep favorite geohash histories synchronized through the local relay so opening them shows backlog.
+        @MainActor
+        func beginFavoriteGeohashSampling(for geohashes: [String]) {
+            let desired = Set(geohashes.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
+            let current = Set(favoriteGeoSamplingSubs.values)
+            let toAdd = desired.subtracting(current)
+            let toRemove = current.subtracting(desired)
+
+            for (subID, gh) in favoriteGeoSamplingSubs where toRemove.contains(gh) {
+                NostrRelayManager.shared.unsubscribe(id: subID)
+                favoriteGeoSamplingSubs.removeValue(forKey: subID)
+            }
+
+            for gh in toAdd {
+                let subID = "geo-fav-\(gh)"
+                favoriteGeoSamplingSubs[subID] = gh
+                let filter = NostrFilter.geohashEphemeral(
+                    gh,
+                    since: nil,
+                    limit: TransportConfig.nostrGeohashInitialLimit
+                )
+                NostrRelayManager.shared.subscribe(
+                    filter: filter,
+                    id: subID,
+                    relayUrls: [LocalRelayConfig.urlString]
+                ) { [weak self] event in
+                    guard let self = self else { return }
+                    Task { @MainActor in
+                        self.ingestFavoriteGeohashHistory(event, geohash: gh)
+                    }
+                }
+            }
+        }
     /// Stop sampling all extra geohashes.
     @MainActor
     func endGeohashSampling() {
         for subID in geoSamplingSubs.keys { NostrRelayManager.shared.unsubscribe(id: subID) }
         geoSamplingSubs.removeAll()
+    }
+
+    @MainActor
+    private func ingestFavoriteGeohashHistory(_ event: NostrEvent, geohash: String) {
+        guard event.kind == NostrProtocol.EventKind.ephemeralEvent.rawValue else { return }
+        if processedNostrEvents.contains(event.id) { return }
+        recordProcessedEvent(event.id)
+
+        let content = event.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !content.isEmpty else { return }
+        if SecureIdentityStateManager.shared.isNostrBlocked(pubkeyHexLowercased: event.pubkey.lowercased()) { return }
+
+        if let nickTag = event.tags.first(where: { $0.first == "n" }), nickTag.count >= 2 {
+            geoNicknames[event.pubkey.lowercased()] = nickTag[1]
+        }
+        recordGeoParticipant(pubkeyHex: event.pubkey, geohash: geohash)
+
+        let senderName = displayNameForNostrPubkey(event.pubkey)
+        let timestamp = Date(timeIntervalSince1970: TimeInterval(event.created_at))
+        let mentions = parseMentions(from: content)
+        let msg = BitchatMessage(
+            id: event.id,
+            sender: senderName,
+            content: content,
+            timestamp: timestamp,
+            isRelay: false,
+            originalSender: nil,
+            isPrivate: false,
+            recipientNickname: nil,
+            senderPeerID: "nostr:\(event.pubkey.prefix(TransportConfig.nostrShortKeyDisplayLength))",
+            mentions: mentions.isEmpty ? nil : mentions
+        )
+
+        var arr = geoTimelines[geohash] ?? []
+        guard !arr.contains(where: { $0.id == msg.id }) else { return }
+        arr.append(msg)
+        if arr.count > geoTimelineCap { arr = Array(arr.suffix(geoTimelineCap)) }
+        geoTimelines[geohash] = arr
+
+        if case .location(let ch) = activeChannel, ch.geohash == geohash {
+            messages = arr
+            trimMessagesIfNeeded()
+            objectWillChange.send()
+        }
     }
 
     private func displayNameForNostrPubkey(_ pubkeyHex: String) -> String {
