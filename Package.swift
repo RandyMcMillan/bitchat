@@ -17,6 +17,10 @@ let package = Package(
             name: "bitchat",
             targets: ["BitchatApp"]
         ),
+        .executable(
+            name: "BitchatRelay",
+            targets: ["BitchatRelay"]
+        ),
     ],
     dependencies:[
         .package(url: "https://github.com/21-DOT-DEV/swift-secp256k1", exact: "0.21.1"),
@@ -42,6 +46,13 @@ let package = Package(
             dependencies: ["Bitchat"],
             path: "bitchat",
             sources: ["BitchatApp.swift"]
+        ),
+        .executableTarget(
+            name: "BitchatRelay",
+            dependencies: [
+                .product(name: "P256K", package: "swift-secp256k1")
+            ],
+            path: "relay"
         ),
     ]
 )
