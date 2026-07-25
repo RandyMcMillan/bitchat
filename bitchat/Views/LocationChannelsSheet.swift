@@ -377,6 +377,9 @@ struct LocationChannelsSheet: View {
             let rhsFavorite = manager.isFavorite(rhs.geohash)
             if lhsFavorite != rhsFavorite { return lhsFavorite && !rhsFavorite }
 
+            if lhs.eventCount != rhs.eventCount { return lhs.eventCount > rhs.eventCount }
+            if lhs.lastSeen != rhs.lastSeen { return lhs.lastSeen > rhs.lastSeen }
+
             let lhsDistance = distanceMeters(for: lhs.geohash)
             let rhsDistance = distanceMeters(for: rhs.geohash)
             switch (lhsDistance, rhsDistance) {
@@ -390,8 +393,6 @@ struct LocationChannelsSheet: View {
                 break
             }
 
-            if lhs.eventCount != rhs.eventCount { return lhs.eventCount > rhs.eventCount }
-            if lhs.lastSeen != rhs.lastSeen { return lhs.lastSeen > rhs.lastSeen }
             return lhs.geohash < rhs.geohash
         }
     }
