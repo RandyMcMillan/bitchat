@@ -247,6 +247,7 @@ class ChatViewModel: ObservableObject, BitchatDelegate {
     private let privateChatManager: PrivateChatManager
     private let unifiedPeerService: UnifiedPeerService
     private let autocompleteService: AutocompleteService
+    private let relayChannelScraper: RelayChannelScraper
     
     // Computed properties for compatibility
     @MainActor
@@ -338,6 +339,7 @@ class ChatViewModel: ObservableObject, BitchatDelegate {
     @Published var showAutocomplete: Bool = false
     @Published var autocompleteRange: NSRange? = nil
     @Published var selectedAutocompleteIndex: Int = 0
+    @Published private(set) var relayScrapedChannels: [RelayScrapedChannel] = []
     
     // Temporary property to fix compilation
     @Published var showPasswordPrompt = false
@@ -485,6 +487,7 @@ class ChatViewModel: ObservableObject, BitchatDelegate {
         self.unifiedPeerService = UnifiedPeerService(meshService: meshService)
         let nostrTransport = NostrTransport()
         self.messageRouter = MessageRouter(mesh: meshService, nostr: nostrTransport)
+        self.relayChannelScraper = RelayChannelScraper.shared
         // Route receipts from PrivateChatManager through MessageRouter
         self.privateChatManager.messageRouter = self.messageRouter
         self.autocompleteService = AutocompleteService()
@@ -496,6 +499,13 @@ class ChatViewModel: ObservableObject, BitchatDelegate {
         privateChatManager.objectWillChange
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        relayChannelScraper.$channels
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] channels in
+                self?.relayScrapedChannels = channels
             }
             .store(in: &cancellables)
         self.commandProcessor.meshService = meshService
@@ -527,6 +537,7 @@ class ChatViewModel: ObservableObject, BitchatDelegate {
             nostrRelayManager = NostrRelayManager.shared
             SecureLogger.log("Initializing Nostr relay connections", category: SecureLogger.session, level: .debug)
             nostrRelayManager?.connect()
+            relayChannelScraper.start()
             
             // Small delay to ensure read receipts are fully loaded
             // This prevents race conditions where messages arrive before initialization completes
