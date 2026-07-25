@@ -4,11 +4,12 @@
 # Default recipe - shows available commands
 default:
     @echo "BitChat macOS Build Commands:"
-    @echo "  just run       - Build and run the macOS app"
-    @echo "  just build     - Build the macOS app only"
-    @echo "  just clean     - Clean build artifacts and restore original files"
-    @echo "  just check     - Check prerequisites"
-    @echo "  just swift-lib - Check prerequisites"
+    @echo "  just run             - Build and run the macOS app"
+    @echo "  just build           - Build the macOS app only"
+    @echo "  just clean           - Clean build artifacts and restore original files"
+    @echo "  just check           - Check prerequisites"
+    @echo "  just swift-lib-ios   - Check prerequisites"
+    @echo "  just swift-lib-macos - Check prerequisites"
     @echo ""
     @echo "Original files are preserved - modifications are temporary for builds only"
 
@@ -102,9 +103,13 @@ info:
     @echo "• Use /msg @user for private messages"
     @echo "• Triple-tap logo for emergency wipe"
 
-# swift-lib
-swift-lib:
-    @xcodebuild -project bitchat.xcodeproj -scheme "bitchat (iOS)" -configuration Debug -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO build
+# swift-lib-ios
+swift-lib-ios:
+    @xcodebuild -project bitchat.xcodeproj -scheme "bitchat (iOS)" -configuration Debug -destination "platform=iOS Simulator,name=iPhone 16" CODE_SIGNING_ALLOWED=NO build
+
+# swift-lib-macos
+swift-lib-macos:
+    @xcodebuild -project bitchat.xcodeproj -scheme "bitchat (macOS)" -configuration Debug -destination "platform=macOS,arch=arm64" CODE_SIGNING_ALLOWED=NO build
 
 # Force clean everything (nuclear option)
 nuke:
