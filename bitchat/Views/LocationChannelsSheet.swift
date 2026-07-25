@@ -117,7 +117,7 @@ struct LocationChannelsSheet: View {
                     let namePart = nameBase.map { formattedNamePrefix(for: channel.level) + $0 }
                     let subtitlePrefix = "#\(channel.geohash) • \(coverage)"
                     let highlight = viewModel.geohashParticipantCount(for: channel.geohash) > 0
-                    channelRow(title: geohashTitleWithCount(for: channel), subtitlePrefix: subtitlePrefix, subtitleName: namePart, isSelected: isSelected(channel), titleBold: highlight) {
+                    geohashRow(title: geohashTitleWithCount(for: channel), subtitlePrefix: subtitlePrefix, subtitleName: namePart, subtitleNameBold: false, channel: channel, isSelected: isSelected(channel), titleBold: highlight) {
                         // Selecting a suggested nearby channel is not a teleport. Persist this.
                         manager.markTeleported(for: channel.geohash, false)
                         manager.select(ChannelID.location(channel))
@@ -133,19 +133,28 @@ struct LocationChannelsSheet: View {
             }
 
             let nearbyGeohashes = Set(manager.availableChannels.map { $0.geohash })
-            let globalGeohashes = viewModel.globalGeohashes.filter { !nearbyGeohashes.contains($0.geohash) }
+            let sortedGlobalGeohashes = sortGlobalGeohashes(
+                viewModel.globalGeohashes.filter { !nearbyGeohashes.contains($0.geohash) }
+            )
 
-            if !globalGeohashes.isEmpty {
+            if !sortedGlobalGeohashes.isEmpty {
                 Text("global feeds")
                     .font(.system(size: 12, design: .monospaced))
                     .foregroundColor(.secondary)
 
-                ForEach(globalGeohashes) { item in
+                ForEach(sortedGlobalGeohashes) { item in
                     let coverage = coverageString(forPrecision: item.geohash.count)
                     let title = "\(item.geohash) [\(item.eventCount) activity]"
-                    let subtitlePrefix = "#\(item.geohash) • global • \(item.sourceLabel) • \(coverage)"
+                    let subtitlePrefix = "#\(item.geohash) • global • \(item.sourceLabel) • \(distanceText(for: item.geohash) ?? coverage)"
                     let channel = GeohashChannel(level: item.level, geohash: item.geohash)
-                    channelRow(title: title, subtitlePrefix: subtitlePrefix, isSelected: isSelected(channel), titleBold: item.eventCount > 0) {
+                    geohashRow(
+                        title: title,
+                        subtitlePrefix: subtitlePrefix,
+                        channel: channel,
+                        isSelected: isSelected(channel),
+                        titleColor: manager.isFavorite(item.geohash) ? standardGreen : nil,
+                        titleBold: item.eventCount > 0
+                    ) {
                         manager.markTeleported(for: channel.geohash, false)
                         manager.select(ChannelID.location(channel))
                         isPresented = false
@@ -248,47 +257,86 @@ struct LocationChannelsSheet: View {
 
     private func channelRow(title: String, subtitlePrefix: String, subtitleName: String? = nil, subtitleNameBold: Bool = false, isSelected: Bool, titleColor: Color? = nil, titleBold: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack {
-                VStack(alignment: .leading) {
-                    // Render title with smaller font for trailing count in parentheses
-                    let parts = splitTitleAndCount(title)
-                    HStack(spacing: 4) {
-                        Text(parts.base)
-                            .font(.system(size: 14, design: .monospaced))
-                            .fontWeight(titleBold ? .bold : .regular)
-                            .foregroundColor(titleColor ?? Color.primary)
-                        if let count = parts.countSuffix, !count.isEmpty {
-                            Text(count)
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    HStack(spacing: 0) {
-                        Text(subtitlePrefix)
-                            .font(.system(size: 12, design: .monospaced))
-                            .foregroundColor(.secondary)
-                        if let name = subtitleName {
-                            Text(" • ")
-                                .font(.system(size: 12, design: .monospaced))
-                                .foregroundColor(.secondary)
-                            Text(name)
-                                .font(.system(size: 12, design: .monospaced))
-                                .fontWeight(subtitleNameBold ? .bold : .regular)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                Spacer()
-                if isSelected {
-                    Text("✔︎")
-                        .font(.system(size: 16, design: .monospaced))
-                        .foregroundColor(standardGreen)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+            channelRowContent(
+                title: title,
+                subtitlePrefix: subtitlePrefix,
+                subtitleName: subtitleName,
+                subtitleNameBold: subtitleNameBold,
+                isSelected: isSelected,
+                titleColor: titleColor,
+                titleBold: titleBold
+            )
         }
         .buttonStyle(.plain)
+    }
+
+    private func geohashRow(title: String, subtitlePrefix: String, subtitleName: String? = nil, subtitleNameBold: Bool = false, channel: GeohashChannel, isSelected: Bool, titleColor: Color? = nil, titleBold: Bool = false, action: @escaping () -> Void) -> some View {
+        HStack(spacing: 8) {
+            Button(action: action) {
+                channelRowContent(
+                    title: title,
+                    subtitlePrefix: subtitlePrefix,
+                    subtitleName: subtitleName,
+                    subtitleNameBold: subtitleNameBold,
+                    isSelected: isSelected,
+                    titleColor: titleColor,
+                    titleBold: titleBold
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button(action: { manager.toggleFavorite(for: channel.geohash) }) {
+                Image(systemName: manager.isFavorite(channel.geohash) ? "star.fill" : "star")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(manager.isFavorite(channel.geohash) ? standardGreen : .secondary)
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(manager.isFavorite(channel.geohash) ? "remove favorite" : "add favorite")
+        }
+    }
+
+    private func channelRowContent(title: String, subtitlePrefix: String, subtitleName: String? = nil, subtitleNameBold: Bool = false, isSelected: Bool, titleColor: Color? = nil, titleBold: Bool = false) -> some View {
+        HStack {
+            VStack(alignment: .leading) {
+                // Render title with smaller font for trailing count in parentheses
+                let parts = splitTitleAndCount(title)
+                HStack(spacing: 4) {
+                    Text(parts.base)
+                        .font(.system(size: 14, design: .monospaced))
+                        .fontWeight(titleBold ? .bold : .regular)
+                        .foregroundColor(titleColor ?? Color.primary)
+                    if let count = parts.countSuffix, !count.isEmpty {
+                        Text(count)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                HStack(spacing: 0) {
+                    Text(subtitlePrefix)
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundColor(.secondary)
+                    if let name = subtitleName {
+                        Text(" • ")
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundColor(.secondary)
+                        Text(name)
+                            .font(.system(size: 12, design: .monospaced))
+                            .fontWeight(subtitleNameBold ? .bold : .regular)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            Spacer()
+            if isSelected {
+                Text("✔︎")
+                    .font(.system(size: 16, design: .monospaced))
+                    .foregroundColor(standardGreen)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // Split a title like "#mesh [3 people]" into base and suffix "[3 people]"
@@ -321,6 +369,63 @@ struct LocationChannelsSheet: View {
         let count = viewModel.geohashParticipantCount(for: channel.geohash)
         let noun = count == 1 ? "person" : "people"
         return "\(channel.level.displayName.lowercased()) [\(count) \(noun)]"
+    }
+
+    private func sortGlobalGeohashes(_ items: [GlobalGeohashFeedItem]) -> [GlobalGeohashFeedItem] {
+        items.sorted { lhs, rhs in
+            let lhsFavorite = manager.isFavorite(lhs.geohash)
+            let rhsFavorite = manager.isFavorite(rhs.geohash)
+            if lhsFavorite != rhsFavorite { return lhsFavorite && !rhsFavorite }
+
+            let lhsDistance = distanceMeters(for: lhs.geohash)
+            let rhsDistance = distanceMeters(for: rhs.geohash)
+            switch (lhsDistance, rhsDistance) {
+            case let (l?, r?):
+                if abs(l - r) > 0.5 { return l < r }
+            case (nil, _?):
+                return false
+            case (_?, nil):
+                return true
+            default:
+                break
+            }
+
+            if lhs.eventCount != rhs.eventCount { return lhs.eventCount > rhs.eventCount }
+            if lhs.lastSeen != rhs.lastSeen { return lhs.lastSeen > rhs.lastSeen }
+            return lhs.geohash < rhs.geohash
+        }
+    }
+
+    private func distanceMeters(for geohash: String) -> Double? {
+        guard let current = manager.currentCoordinate else { return nil }
+        let center = Geohash.decodeCenter(geohash)
+        let currentLocation = CLLocation(latitude: current.latitude, longitude: current.longitude)
+        let geohashLocation = CLLocation(latitude: center.lat, longitude: center.lon)
+        return currentLocation.distance(from: geohashLocation)
+    }
+
+    private func distanceText(for geohash: String) -> String? {
+        guard let meters = distanceMeters(for: geohash) else { return nil }
+        let usesMetric: Bool = {
+            if #available(iOS 16.0, macOS 13.0, *) {
+                return Locale.current.measurementSystem == .metric
+            } else {
+                return Locale.current.usesMetricSystem
+            }
+        }()
+
+        if usesMetric {
+            if meters >= 1000 {
+                return String(format: "%.1f km", meters / 1000)
+            }
+            return String(format: "%.0f m", meters)
+        } else {
+            let miles = meters / 1609.344
+            if miles >= 1 {
+                return String(format: "%.1f mi", miles)
+            }
+            return String(format: "%.2f mi", miles)
+        }
     }
 
     private func validateGeohash(_ s: String) -> Bool {

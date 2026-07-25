@@ -22,6 +22,7 @@ final class LocationChannelManager: NSObject, CLLocationManagerDelegate, Observa
     private var refreshTimer: Timer?
     private let userDefaultsKey = "locationChannel.selected"
     private let teleportedStoreKey = "locationChannel.teleportedSet"
+    private let favoriteStoreKey = "locationChannel.favoriteGeohashes"
     private var isGeocoding: Bool = false
 
     // Published state for UI bindings
@@ -31,6 +32,8 @@ final class LocationChannelManager: NSObject, CLLocationManagerDelegate, Observa
     // True when the current location channel was selected via manual teleport
     @Published var teleported: Bool = false
     @Published private(set) var locationNames: [GeohashChannelLevel: String] = [:]
+    @Published private(set) var currentCoordinate: CLLocationCoordinate2D?
+    @Published private(set) var favoriteGeohashes: Set<String> = []
 
     // Persisted set of geohashes that were selected via teleport
     private var teleportedSet: Set<String> = []
@@ -49,6 +52,10 @@ final class LocationChannelManager: NSObject, CLLocationManagerDelegate, Observa
         if let data = UserDefaults.standard.data(forKey: teleportedStoreKey),
            let arr = try? JSONDecoder().decode([String].self, from: data) {
             teleportedSet = Set(arr)
+        }
+        if let data = UserDefaults.standard.data(forKey: favoriteStoreKey),
+           let arr = try? JSONDecoder().decode([String].self, from: data) {
+            favoriteGeohashes = Set(arr)
         }
         // Initialize teleported flag from persisted state if a location channel is selected
         if case .location(let ch) = selectedChannel {
@@ -145,6 +152,30 @@ final class LocationChannelManager: NSObject, CLLocationManagerDelegate, Observa
         }
     }
 
+    func isFavorite(_ geohash: String) -> Bool {
+        favoriteGeohashes.contains(normalizeGeohash(geohash))
+    }
+
+    func toggleFavorite(for geohash: String) {
+        setFavorite(!isFavorite(geohash), for: geohash)
+    }
+
+    func setFavorite(_ favorite: Bool, for geohash: String) {
+        let normalized = normalizeGeohash(geohash)
+        if favorite {
+            favoriteGeohashes.insert(normalized)
+        } else {
+            favoriteGeohashes.remove(normalized)
+        }
+        if let data = try? JSONEncoder().encode(Array(favoriteGeohashes)) {
+            UserDefaults.standard.set(data, forKey: favoriteStoreKey)
+        }
+    }
+
+    private func normalizeGeohash(_ geohash: String) -> String {
+        geohash.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
     // MARK: - CoreLocation
     private func requestOneShotLocation() {
         cl.requestLocation()
@@ -196,11 +227,14 @@ final class LocationChannelManager: NSObject, CLLocationManagerDelegate, Observa
     private func computeChannels(from coord: CLLocationCoordinate2D) {
         let levels = GeohashChannelLevel.allCases
         var result: [GeohashChannel] = []
+        let latitude = coord.latitude
+        let longitude = coord.longitude
         for level in levels {
-            let gh = Geohash.encode(latitude: coord.latitude, longitude: coord.longitude, precision: level.precision)
+            let gh = Geohash.encode(latitude: latitude, longitude: longitude, precision: level.precision)
             result.append(GeohashChannel(level: level, geohash: gh))
         }
         Task { @MainActor in
+            self.currentCoordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
             self.availableChannels = result
             // Recompute teleported status based on persisted state OR current location vs selected channel
             switch self.selectedChannel {
@@ -208,7 +242,7 @@ final class LocationChannelManager: NSObject, CLLocationManagerDelegate, Observa
                 self.teleported = false
             case .location(let ch):
                 let persisted = self.teleportedSet.contains(ch.geohash)
-                let currentGH = Geohash.encode(latitude: coord.latitude, longitude: coord.longitude, precision: ch.level.precision)
+                let currentGH = Geohash.encode(latitude: latitude, longitude: longitude, precision: ch.level.precision)
                 self.teleported = persisted || (currentGH != ch.geohash)
             }
         }
